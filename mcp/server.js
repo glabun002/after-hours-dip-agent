@@ -124,10 +124,12 @@ server.registerTool(
     try {
       const threshold = requireDiscountPct ?? THRESHOLD_DISCOUNT_PCT;
       const signals = await surveyWatchlist(payFetch);
-      const dips = signals.filter((s) => s.discountPct >= threshold).sort((a, b) => b.discountPct - a.discountPct);
+      const allDips = signals.filter((s) => s.discountPct >= threshold).sort((a, b) => b.discountPct - a.discountPct);
+      const dips = allDips.filter((d) => findStock(d.ticker)?.tradable);
+      const skipped = allDips.filter((d) => !findStock(d.ticker)?.tradable).map((d) => d.ticker);
       if (!dips.length) {
-        return ok(`No stock is at least ${threshold}% below its close right now. Holding, no trades made.`,
-          { threshold, scanned: signals.map((s) => ({ ticker: s.ticker, discountPct: s.discountPct })) });
+        return ok(`No tradable stock is at least ${threshold}% below its close right now${skipped.length ? ` (${skipped.join(', ')} dipping but signal-only, no route to buy)` : ''}. Holding, no trades made.`,
+          { threshold, skippedSignalOnly: skipped, scanned: signals.map((s) => ({ ticker: s.ticker, discountPct: s.discountPct })) });
       }
       const bal = await balances(account.address);
       const per = usdgAmount ?? BUY_USDG;
@@ -136,7 +138,7 @@ server.registerTool(
       }
       const bought = [];
       for (const d of dips) bought.push(await buyOne(findStock(d.ticker), slippagePct ?? SLIPPAGE_PCT, per));
-      return ok(`Bought ${bought.length} dip(s): ${bought.map((b) => b.ticker).join(', ')}.`, { threshold, bought });
+      return ok(`Bought ${bought.length} dip(s): ${bought.map((b) => b.ticker).join(', ')}.${skipped.length ? ` Skipped signal-only: ${skipped.join(', ')}.` : ''}`, { threshold, bought, skippedSignalOnly: skipped });
     } catch (e) {
       return fail(e.message);
     }
@@ -148,8 +150,8 @@ server.registerTool(
   {
     title: 'Buy one watchlist stock (real swap)',
     description:
-      `Buys a specific watchlist stock (${WATCHLIST.map((s) => s.ticker).join(', ')}) with USDG, routed USDG -> ETH -> stock. Real on-chain trade. ` +
-      'Does NOT check the dip threshold - use this for a manual buy.',
+      `Buys a specific tradable watchlist stock (${WATCHLIST.filter((s) => s.tradable).map((s) => s.ticker).join(', ')}) with USDG, routed USDG -> ETH -> stock. Real on-chain trade. ` +
+      `Does NOT check the dip threshold - use this for a manual buy. Signal-only tickers (${WATCHLIST.filter((s) => !s.tradable).map((s) => s.ticker).join(', ')}) cannot be bought.`,
     inputSchema: {
       ticker: z.string(),
       usdgAmount: z.number().positive().max(1000).optional(),
@@ -160,6 +162,7 @@ server.registerTool(
     try {
       const stock = findStock(ticker);
       if (!stock) return fail(`${ticker} is not on the watchlist (${WATCHLIST.map((s) => s.ticker).join(', ')}).`);
+      if (!stock.tradable) return fail(`${stock.ticker} is signal-only on this chain (no liquid ETH route pool): the oracle quotes it, but it cannot be bought.`);
       const per = usdgAmount ?? BUY_USDG;
       const bal = await balances(account.address);
       if (bal._usdgAtomic < parseUnits(String(per), USDG_DECIMALS)) {

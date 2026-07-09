@@ -39,23 +39,27 @@ const POOL_KEY_ABI = [{ type: 'tuple', components: [
 ] }];
 const poolId = (key) => keccak256(encodeAbiParameters(POOL_KEY_ABI, [key]));
 
-// ---- Watchlist: the agent scans these and buys the ones under threshold ----
-// Add a stock() with a USDG/<stock> price pool (read-only signal) and an
-// ETH/<stock> pool (the buy leg). The direct USDG/<stock> pool is NOT swappable
-// via the Universal Router on this chain (token/token pools empty-revert;
-// verified 2026-07-08), so buys route USDG -> ETH -> <stock>. Only tickers with
-// both pools liquid are usable; all four below are verified end to end.
-function stock(ticker, name, address, priceFee, priceTs, ethFee, ethTs) {
+// ---- Watchlist: the oracle sells every signal; the agent buys tradable dips ----
+// A stock needs a liquid USDG/<stock> price pool (the signal). It is TRADABLE
+// only if it also has a liquid ETH/<stock> pool: the direct USDG/<stock> pool
+// is NOT swappable via the Universal Router on this chain (token/token pools
+// empty-revert; verified 2026-07-08), so buys route USDG -> ETH -> <stock>.
+// Signal-only entries (ethFee = null) are served by the oracle but skipped by
+// every buy path.
+function stock(ticker, name, address, priceFee, priceTs, ethFee = null, ethTs = null) {
   const priceKey = { currency0: USDG, currency1: address, fee: priceFee, tickSpacing: priceTs, hooks: ETH };
-  const ethKey = { currency0: ETH, currency1: address, fee: ethFee, tickSpacing: ethTs, hooks: ETH };
-  return { ticker, name, address, decimals: 18, pricePool: { id: poolId(priceKey), key: priceKey }, ethPool: { key: ethKey } };
+  const tradable = ethFee != null;
+  const ethKey = tradable ? { currency0: ETH, currency1: address, fee: ethFee, tickSpacing: ethTs, hooks: ETH } : null;
+  return { ticker, name, address, decimals: 18, tradable, pricePool: { id: poolId(priceKey), key: priceKey }, ethPool: tradable ? { key: ethKey } : null };
 }
 
 export const WATCHLIST = [
-  stock('NVDA', 'NVIDIA',  '0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC', 3000, 60, 50000, 1000),   // headliner
-  stock('AAPL', 'Apple',   '0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9', 50000, 1000, 50000, 1000),
-  stock('AMD',  'AMD',     '0x86923f96303D656E4aa86D9d42D1e57ad2023fdC', 10000, 200, 50000, 1000),
-  stock('SNDK', 'SanDisk', '0xB90A19fF0Af67f7779afF50A882A9CfF42446400', 10000, 200, 50000, 1000),
+  stock('NVDA', 'NVIDIA',         '0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC', 3000, 60, 50000, 1000),   // headliner
+  stock('AAPL', 'Apple',          '0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9', 50000, 1000, 50000, 1000),
+  stock('AMD',  'AMD',            '0x86923f96303D656E4aa86D9d42D1e57ad2023fdC', 10000, 200, 50000, 1000),
+  stock('SNDK', 'SanDisk',        '0xB90A19fF0Af67f7779afF50A882A9CfF42446400', 10000, 200, 50000, 1000),
+  stock('MU',   'Micron',         '0xfF080c8ce2E5feadaCa0Da81314Ae59D232d4afD', 10000, 200),              // signal-only
+  stock('QQQ',  'Nasdaq-100 ETF', '0xD5f3879160bc7c32ebb4dC785F8a4F505888de68', 10000, 200),              // signal-only
 ];
 export const findStock = (ticker) => WATCHLIST.find((s) => s.ticker === ticker.toUpperCase());
 export const pricePath = (ticker) => `/price/${ticker}`;

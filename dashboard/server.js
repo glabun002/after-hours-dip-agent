@@ -102,7 +102,9 @@ app.get('/api/buy', async (_req, res) => {
   try {
     // re-scan quietly (free reads) to decide dips, so a buy click is self-contained
     const prices = await pricesSnapshot();
-    const dips = prices.filter((p) => !p.error && p.discount >= THRESHOLD_DISCOUNT_PCT).sort((a, b) => b.discount - a.discount);
+    const dips = prices
+      .filter((p) => !p.error && p.discount >= THRESHOLD_DISCOUNT_PCT && findStock(p.ticker)?.tradable)
+      .sort((a, b) => b.discount - a.discount);
     if (!dips.length) { send('done', { bought: [], wallet: await walletSnapshot() }); return; }
     for (const d of dips) {
       const s = findStock(d.ticker);

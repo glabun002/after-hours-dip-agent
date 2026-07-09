@@ -47,11 +47,14 @@ async function runOnce() {
     console.log(`   ${sig.ticker} (${s.name}): $${sig.onchainPrice} vs $${sig.lastNyseClose} close = ${Math.abs(sig.discountPct).toFixed(2)}% ${dir}  [${tag}]${sig.settlementTx ? `  paid: ${EXPLORER}/tx/${sig.settlementTx}` : ''}`);
   }
 
-  const dips = signals.filter((s) => s.discountPct >= THRESHOLD_DISCOUNT_PCT).sort((a, b) => b.discountPct - a.discountPct);
-  console.log(`\n2. NYSE open now: ${signals[0]?.nyseOpenNow}. Dips over ${THRESHOLD_DISCOUNT_PCT}%: ${dips.length ? dips.map((d) => d.ticker).join(', ') : 'none'}.`);
+  const allDips = signals.filter((s) => s.discountPct >= THRESHOLD_DISCOUNT_PCT).sort((a, b) => b.discountPct - a.discountPct);
+  const dips = allDips.filter((d) => findStock(d.ticker)?.tradable);
+  const signalOnly = allDips.filter((d) => !findStock(d.ticker)?.tradable);
+  console.log(`\n2. NYSE open now: ${signals[0]?.nyseOpenNow}. Dips over ${THRESHOLD_DISCOUNT_PCT}%: ${allDips.length ? allDips.map((d) => d.ticker).join(', ') : 'none'}.`);
+  if (signalOnly.length) console.log(`   (${signalOnly.map((d) => d.ticker).join(', ')} signal-only on this chain - no route to buy, skipping)`);
 
   if (!dips.length) {
-    console.log('3. nothing below threshold. holding.');
+    console.log('3. nothing tradable below threshold. holding.');
     return { bought: [] };
   }
 
