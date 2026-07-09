@@ -7,8 +7,10 @@ const pk = generatePrivateKey();
 const account = privateKeyToAccount(pk);
 
 console.log('Fresh production facilitator wallet (NOT saved anywhere):\n');
-console.log(`  FACILITATOR_PRIVATE_KEY=${pk}`);
-console.log(`  address: ${account.address}\n`);
+console.log('  variable name:  FACILITATOR_PRIVATE_KEY');
+console.log('  value (copy ONLY this line into the value field):');
+console.log(`${pk}`);
+console.log(`\n  address to fund: ${account.address}\n`);
 console.log('Next steps:');
 console.log('  1. Set FACILITATOR_PRIVATE_KEY on your hosting platform (env var, not a file).');
 console.log('  2. Fund the address above with ~0.002 ETH on Robinhood Chain (settlement gas).');

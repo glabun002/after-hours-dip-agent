@@ -34,7 +34,22 @@ if (!FACILITATOR_PRIVATE_KEY || !TREASURY_ADDRESS) {
   process.exit(1);
 }
 
-const facilitatorAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
+// Forgive the common paste mistakes (quotes, whitespace, a "NAME=" prefix),
+// then validate hard so a bad key fails with a readable message, not a stack trace.
+const facilitatorKey = FACILITATOR_PRIVATE_KEY
+  .trim()
+  .replace(/^["']|["']$/g, '')
+  .replace(/^FACILITATOR_PRIVATE_KEY=/, '');
+if (!/^0x[0-9a-fA-F]{64}$/.test(facilitatorKey)) {
+  console.error(
+    `FACILITATOR_PRIVATE_KEY is malformed: expected 0x followed by 64 hex characters (66 total), got ${facilitatorKey.length} characters` +
+    `${facilitatorKey.startsWith('0x') ? '' : ' (missing 0x prefix?)'}. ` +
+    'Set ONLY the 0x... value, with no variable name, quotes, or spaces.',
+  );
+  process.exit(1);
+}
+
+const facilitatorAccount = privateKeyToAccount(facilitatorKey);
 
 // ---- free board snapshot, cached so page traffic stays cheap on RPC/Yahoo ----
 const BOARD_CACHE_MS = 30_000;
