@@ -64,12 +64,12 @@ async function boardSnapshot() {
       const [onchain, official] = await Promise.all([getOnchainPrice(s), getLastClose(s.ticker)]);
       const discount = ((official.close - onchain.price) / official.close) * 100;
       prices.push({
-        ticker: s.ticker, name: s.name,
+        ticker: s.ticker, name: s.name, tradable: s.tradable,
         onchain: Number(onchain.price.toFixed(2)), close: official.close,
         closeDate: official.closeDate, discount: Number(discount.toFixed(2)),
       });
     } catch (e) {
-      prices.push({ ticker: s.ticker, name: s.name, error: e.message });
+      prices.push({ ticker: s.ticker, name: s.name, tradable: s.tradable, error: e.message });
     }
   }
   // Treasury only ever receives oracle fees, so quotes sold = balance / price.

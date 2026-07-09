@@ -42,6 +42,10 @@
   .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:13px;padding:14px 18px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px}
   .card .tkr{font-family:var(--mono);font-size:18px;font-weight:600;min-width:88px}
   .card .name{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .tag{display:inline-block;margin-left:7px;font-size:9.5px;letter-spacing:.8px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:5px;background:rgba(167,139,250,.14);color:var(--violet);vertical-align:middle}
+  .caveats{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:4px 18px 8px;max-width:760px}
+  .caveats li{color:var(--muted);font-size:13px;line-height:1.65;margin:10px 0}
+  .caveats b{color:var(--ink);font-weight:600}
   .card .px{text-align:right}
   .card .px .now{font-family:var(--mono);font-size:17px}
   .card .px .cl{color:var(--muted);font-size:11px;font-family:var(--mono)}
@@ -121,6 +125,14 @@ $ curl -i <span data-host>https://HOST/price/NVDA</span>
 <span class="c">payment-required: eyJ4NDAyVmVyc2lvbiI6Mi4uLi  (base64 payment requirements)</span></pre>
 
     <p>The buyer needs no ETH; settlement gas is sponsored by this service's self-hosted x402 facilitator for <span style="font-family:var(--mono)">eip155:4663</span>. Response shape: ticker, live on-chain price, last NYSE close, discount percent, and whether the NYSE is open right now.</p>
+
+    <p class="section-label">Read this before trading on it</p>
+    <ul class="caveats">
+      <li><b>These pools are thin.</b> Robinhood Chain is days old and its stock-token pools hold modest liquidity. The price is the real on-chain print, but it is not the price you could execute at size, and small trades move it.</li>
+      <li><b>It is a spot read, not a TWAP.</b> The signal reads the pool's current slot0 price. A motivated actor could push a thin pool to paint a temporary discount. Do not let an agent trade this naively; confirm dips persist across reads before acting.</li>
+      <li><b>A discount is not free money.</b> The stock/ETH pools charge a 5% fee tier, so much of a small "dip" disappears into fees and slippage on any actual buy.</li>
+      <li><b>Signal-only tickers</b> (marked on the board) have a readable price pool but no liquid on-chain route to buy them via the Universal Router. You can buy their signal; you cannot currently buy the stock on this chain.</li>
+    </ul>
   </div>
 
   <footer>
@@ -144,10 +156,11 @@ async function load(){
   $('#s-price').textContent='$'+fmt(b.pricePerQuoteUsdg);
 
   $('#cards').innerHTML = b.prices.map(p=>{
-    if(p.error) return '<div class="card"><div><div class="tkr">'+p.ticker+'</div><div class="name">'+p.name+'</div></div><div></div><div class="disc above">no data</div></div>';
+    const tag = p.tradable===false ? '<span class="tag">signal-only</span>' : '';
+    if(p.error) return '<div class="card"><div><div class="tkr">'+p.ticker+tag+'</div><div class="name">'+p.name+'</div></div><div></div><div class="disc above">no data</div></div>';
     const below=p.discount>=0;
     return '<div class="card'+(p.discount>=1?' dip':'')+'">'+
-      '<div><div class="tkr">'+p.ticker+'</div><div class="name">'+p.name+'</div></div>'+
+      '<div><div class="tkr">'+p.ticker+tag+'</div><div class="name">'+p.name+'</div></div>'+
       '<div class="px"><div class="now">$'+fmt(p.onchain)+'</div><div class="cl">close $'+fmt(p.close)+'</div></div>'+
       '<div class="disc '+(below?'below':'above')+'">'+Math.abs(p.discount).toFixed(2)+'% '+(below?'below':'above')+'</div></div>';
   }).join('');
