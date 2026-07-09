@@ -103,8 +103,8 @@ async function boardSnapshot() {
   const data = {
     network: NETWORK,
     payWith: [
-      { network: NETWORK, asset: 'USDG', label: 'USDG on Robinhood Chain' },
       ...(ACCEPT_BASE ? [{ network: BASE_NETWORK, asset: 'USDC', label: 'USDC on Base' }] : []),
+      { network: NETWORK, asset: 'USDG', label: 'USDG on Robinhood Chain' },
     ],
     nyseOpenNow: isNyseOpenNow(),
     pricePerQuoteUsdg: Number(ORACLE_PRICE_ATOMIC) / 1e6,

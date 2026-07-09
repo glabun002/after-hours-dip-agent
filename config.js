@@ -35,10 +35,13 @@ export const BASE_USDC_EIP712 = { name: 'USD Coin', version: '2' };
 export const ACCEPT_BASE = process.env.ACCEPT_BASE !== 'false';
 
 // Every way a buyer can pay for a quote. USDG and USDC are both 6 decimals,
-// so one atomic amount covers both.
+// so one atomic amount covers both. ORDER MATTERS: naive clients try the
+// first option, and most agents hold USDC on Base — so Base goes first.
+// (Learned from a live ampersend agent that tried rail #1, had no USDG,
+// and gave up instead of falling back.)
 export const paymentOptionsFor = (amountAtomic, payTo) => [
-  { scheme: 'exact', network: NETWORK, payTo, maxTimeoutSeconds: 120, price: { asset: USDG, amount: amountAtomic, extra: { ...USDG_EIP712 } }, extra: { ...USDG_EIP712 } },
   ...(ACCEPT_BASE ? [{ scheme: 'exact', network: BASE_NETWORK, payTo, maxTimeoutSeconds: 120, price: { asset: BASE_USDC, amount: amountAtomic, extra: { ...BASE_USDC_EIP712 } }, extra: { ...BASE_USDC_EIP712 } }] : []),
+  { scheme: 'exact', network: NETWORK, payTo, maxTimeoutSeconds: 120, price: { asset: USDG, amount: amountAtomic, extra: { ...USDG_EIP712 } }, extra: { ...USDG_EIP712 } },
 ];
 
 // Uniswap v4 (developers.uniswap.org/contracts/v4/deployments, chain 4663)
