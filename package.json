@@ -1,0 +1,29 @@
+{
+  "name": "after-hours-dip-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An AI agent that pays another machine (via x402) for after-hours equity prices on Robinhood Chain, then buys the dips across a watchlist of tokenized stocks on Uniswap v4.",
+  "scripts": {
+    "gen-wallets": "node scripts/gen-wallets.js",
+    "status": "node scripts/status.js",
+    "facilitator": "node facilitator/index.js",
+    "oracle": "node oracle/index.js",
+    "agent": "node agent/index.js",
+    "mcp": "node mcp/server.js",
+    "dashboard": "node dashboard/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@uniswap/sdk-core": "^7.18.0",
+    "@uniswap/v4-sdk": "^2.3.0",
+    "@x402/core": "^2.17.0",
+    "@x402/evm": "^2.17.0",
+    "@x402/express": "^2.17.0",
+    "@x402/fetch": "^2.17.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "viem": "^2.21.0",
+    "zod": "^4.4.3"
+  }
+}

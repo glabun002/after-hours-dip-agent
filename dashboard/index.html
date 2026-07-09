@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>After-Hours Dip Agent</title>
+<style>
+  :root{
+    --bg:#0a0e17; --panel:#121a28; --panel2:#0e1521; --line:#1e293b;
+    --ink:#e6edf7; --muted:#7d8aa0; --mute2:#516074;
+    --green:#00d68f; --amber:#ffb020; --red:#ff4d5e; --blue:#4d9fff; --violet:#a78bfa;
+    --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#12203a 0%,var(--bg) 55%);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 24px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+  .brand h1{font-size:19px;margin:0;letter-spacing:.3px}
+  .brand p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
+  .pills{display:flex;gap:8px;align-items:center}
+  .pill{font-family:var(--mono);font-size:11.5px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);white-space:nowrap}
+  .pill.market{border-color:transparent;font-weight:600}
+  .pill.closed{background:rgba(255,77,94,.13);color:#ff8792;border:1px solid rgba(255,77,94,.35)}
+  .pill.open{background:rgba(0,214,143,.13);color:#4fe3b3;border:1px solid rgba(0,214,143,.3)}
+  .pill .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .closed .dot{background:#ff4d5e;box-shadow:0 0 10px #ff4d5e}
+  .open .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
+
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:20px;margin-top:22px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .section-label{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mute2);margin:0 0 11px;font-weight:600}
+
+  .cards{display:flex;flex-direction:column;gap:12px}
+  .card{position:relative;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;transition:.35s}
+  .card .tkr{font-family:var(--mono);font-size:20px;font-weight:600;letter-spacing:.5px;min-width:90px}
+  .card .name{color:var(--muted);font-size:12px;margin-top:2px}
+  .card .sub{color:var(--mute2);font-size:11px;margin-top:2px}
+  .card .px{text-align:right}
+  .card .px .now{font-family:var(--mono);font-size:19px}
+  .card .px .cl{color:var(--muted);font-size:11.5px;font-family:var(--mono)}
+  .card .disc{text-align:right;min-width:120px}
+  .card .disc .val{font-family:var(--mono);font-size:16px;font-weight:600}
+  .badge{display:inline-block;margin-top:5px;font-size:10.5px;letter-spacing:1px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase}
+  .b-hold{background:rgba(125,138,160,.14);color:#9aa7bd}
+  .b-dip{background:rgba(255,176,32,.16);color:#ffca6b}
+  .b-buy{background:rgba(0,214,143,.16);color:#4fe3b3}
+  .below{color:var(--amber)} .above{color:var(--muted)}
+  .card.dip{border-color:rgba(255,176,32,.45);box-shadow:0 0 0 1px rgba(255,176,32,.15),0 8px 30px -12px rgba(255,176,32,.35)}
+  .card.bought{border-color:rgba(0,214,143,.5);box-shadow:0 0 0 1px rgba(0,214,143,.18),0 8px 30px -12px rgba(0,214,143,.4)}
+  .card.paying{animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{border-color:var(--line)}50%{border-color:var(--blue)}}
+  @keyframes flash{0%{background:rgba(0,214,143,.28)}100%{background:transparent}}
+  .card.flash{animation:flash 1.1s ease-out}
+  .scanline{position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--blue),transparent);opacity:0;border-radius:14px}
+  .card.paying .scanline{opacity:1;animation:sweep 1s linear infinite}
+  @keyframes sweep{0%{transform:translateY(0)}100%{transform:translateY(72px)}}
+
+  .side{display:flex;flex-direction:column;gap:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .wal-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .wal-row:last-child{border-bottom:0}
+  .wal-row .k{color:var(--muted)} .wal-row .v{font-family:var(--mono)}
+  .wal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .wal-head .who{font-size:12.5px;font-weight:600} .wal-head .addr{font-family:var(--mono);font-size:10px;color:var(--mute2)}
+  .earn{color:var(--green)}
+  .feed{max-height:250px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+  .feed:empty::after{content:'No payments yet. Hit Scan.';color:var(--mute2);font-size:12px}
+  .frow{display:flex;align-items:center;gap:9px;font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;animation:slide .35s ease}
+  @keyframes slide{from{opacity:0;transform:translateX(10px)}to{opacity:1}}
+  .frow .amt{font-family:var(--mono);color:var(--violet);font-weight:600}
+  .frow .lbl{color:var(--muted);flex:1}
+  .frow a{color:var(--blue);text-decoration:none;font-family:var(--mono);font-size:11px}
+  .frow.buy .amt{color:var(--green)}
+
+  .controls{position:sticky;bottom:0;margin-top:22px;display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,transparent,var(--bg) 40%);padding-top:18px}
+  button{font-family:var(--sans);font-size:14px;font-weight:600;border:0;border-radius:11px;padding:13px 20px;cursor:pointer;transition:.2s}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .btn-scan{background:var(--blue);color:#04121f}
+  .btn-scan:hover:not(:disabled){background:#6cb0ff}
+  .btn-buy{background:var(--green);color:#04211a}
+  .btn-buy:hover:not(:disabled){background:#2ee3a4}
+  .status{color:var(--muted);font-size:12.5px;font-family:var(--mono);margin-left:auto}
+  a.tx{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>After-Hours Dip Agent</h1>
+      <p>Autonomous after-hours dip buyer. Pays for its own data over x402, buys tokenized stock on Uniswap v4.</p>
+    </div>
+    <div class="pills">
+      <span id="market" class="pill market">· · ·</span>
+      <span class="pill">Robinhood Chain · 4663</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <p class="section-label">Watchlist &nbsp;·&nbsp; on-chain price vs last NYSE close</p>
+      <div id="cards" class="cards"></div>
+    </div>
+    <div class="side">
+      <div class="panel">
+        <p class="section-label" style="margin-bottom:14px">Wallets</p>
+        <div class="wal-head"><span class="who">Agent</span><span id="agent-addr" class="addr"></span></div>
+        <div id="agent-wal"></div>
+        <div class="wal-head" style="margin-top:16px"><span class="who">Treasury</span><span class="addr">oracle revenue</span></div>
+        <div id="treasury-wal"></div>
+      </div>
+      <div class="panel">
+        <p class="section-label" style="margin-bottom:12px">x402 payments</p>
+        <div id="feed" class="feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="scan" class="btn-scan">▶ Scan watchlist</button>
+    <button id="buy" class="btn-buy" disabled>Buy the dips</button>
+    <span id="status" class="status">loading…</span>
+  </div>
+</div>
+
+<script>
+const $ = (s)=>document.querySelector(s);
+let THRESHOLD=1, BUY=2, EXPLORER='';
+const cards = {};
+
+function fmt(n,d=2){return Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function discStr(d){const below=d>=0;return `<span class="${below?'below':'above'}">${Math.abs(d).toFixed(2)}% ${below?'below':'above'}</span>`;}
+function badge(d){return d>=THRESHOLD?'<span class="badge b-dip">DIP</span>':'<span class="badge b-hold">Hold</span>';}
+
+function renderCard(row){
+  let el = cards[row.ticker];
+  if(!el){
+    el = document.createElement('div'); el.className='card'; el.id='c-'+row.ticker;
+    el.innerHTML=`<div class="scanline"></div>
+      <div><div class="tkr">${row.ticker}</div><div class="name">${row.name||''}</div><div class="sub" data-sub>—</div></div>
+      <div class="px"><div class="now" data-now>—</div><div class="cl" data-cl></div></div>
+      <div class="disc"><div class="val" data-disc>—</div><div data-badge></div></div>`;
+    $('#cards').appendChild(el); cards[row.ticker]=el;
+  }
+  if(row.error){el.querySelector('[data-now]').textContent='no data';return;}
+  el.querySelector('[data-now]').textContent = '$'+fmt(row.onchain);
+  el.querySelector('[data-cl]').textContent = 'close $'+fmt(row.close);
+  el.querySelector('[data-disc]').innerHTML = discStr(row.discount);
+  el.querySelector('[data-badge]').innerHTML = badge(row.discount);
+  el.querySelector('[data-sub]').textContent = row.discount>=THRESHOLD?'below threshold — buy':'tracking its close';
+  el.classList.toggle('dip', row.discount>=THRESHOLD);
+}
+
+function renderWallet(w){
+  $('#agent-addr').textContent = w.agent.address.slice(0,6)+'…'+w.agent.address.slice(-4);
+  const hold=(h)=>Object.entries(h).map(([k,v])=>`<div class="wal-row"><span class="k">${k}</span><span class="v">${fmt(v,4)}</span></div>`).join('');
+  $('#agent-wal').innerHTML = `<div class="wal-row"><span class="k">ETH</span><span class="v">${fmt(w.agent.eth,4)}</span></div>
+    <div class="wal-row"><span class="k">USDG</span><span class="v">${fmt(w.agent.usdg)}</span></div>`+hold(w.agent.holdings);
+  $('#treasury-wal').innerHTML = `<div class="wal-row"><span class="k">USDG earned</span><span class="v earn">${fmt(w.treasury.usdg)}</span></div>`;
+}
+
+function setMarket(open){
+  const el=$('#market'); el.className='pill market '+(open?'open':'closed');
+  el.innerHTML=`<span class="dot"></span>${open?'MARKET OPEN':'MARKET CLOSED'}`;
+}
+function feed(html,cls=''){const d=document.createElement('div');d.className='frow '+cls;d.innerHTML=html;$('#feed').prepend(d);}
+
+async function loadState(){
+  const s = await (await fetch('/api/state')).json();
+  THRESHOLD=s.threshold; BUY=s.buyUsdg; EXPLORER=s.explorer;
+  setMarket(s.nyseOpenNow);
+  s.prices.forEach(renderCard); renderWallet(s.wallet);
+  const dips = s.prices.filter(p=>!p.error && p.discount>=THRESHOLD);
+  $('#buy').disabled = dips.length===0;
+  $('#status').textContent = `${s.prices.length} stocks · threshold ${THRESHOLD}% · ${dips.length} dip${dips.length!==1?'s':''} · buy ${BUY} USDG each`;
+}
+
+function stream(url, handlers, onEnd){
+  const es = new EventSource(url);
+  es.onmessage = (m)=>{const d=JSON.parse(m.data); (handlers[d.event]||(()=>{}))(d); if(d.event==='done'||d.event==='error'){es.close(); onEnd&&onEnd(d);} };
+  es.onerror = ()=>{es.close(); onEnd&&onEnd({event:'error',message:'stream closed'});};
+}
+
+$('#scan').onclick = ()=>{
+  $('#scan').disabled=true; $('#buy').disabled=true; $('#status').textContent='scanning… paying per quote';
+  stream('/api/scan',{
+    paying:(d)=>{ cards[d.ticker]?.classList.add('paying'); },
+    quote:(d)=>{
+      const el=cards[d.ticker]; el?.classList.remove('paying');
+      renderCard({ticker:d.ticker,name:d.name,onchain:d.onchain,close:d.close,discount:d.discount});
+      setMarket(d.nyseOpenNow);
+      feed(`<span class="amt">-$0.05</span><span class="lbl">${d.ticker} quote · x402</span>${d.txUrl?`<a href="${d.txUrl}" target="_blank">tx ↗</a>`:''}`);
+    },
+    done:(d)=>{ renderWallet(d.wallet); }
+  }, (d)=>{
+    $('#scan').disabled=false;
+    if(d.event==='error'){$('#status').textContent='error: '+d.message; return;}
+    const dips=d.dips||[]; $('#buy').disabled=dips.length===0;
+    $('#status').textContent = dips.length?`dip${dips.length>1?'s':''}: ${dips.join(', ')} — ready to buy`:'no dips over threshold — agent holds';
+  });
+};
+
+$('#buy').onclick = ()=>{
+  $('#scan').disabled=true; $('#buy').disabled=true; $('#status').textContent='buying dips…';
+  stream('/api/buy',{
+    buying:(d)=>{ const el=cards[d.ticker]; if(el){el.classList.add('paying');el.querySelector('[data-sub]').textContent='routing USDG → ETH → '+d.ticker+'…';} },
+    bought:(d)=>{
+      const el=cards[d.ticker];
+      if(el){el.classList.remove('paying','dip');el.classList.add('bought','flash');
+        el.querySelector('[data-badge]').innerHTML='<span class="badge b-buy">Bought</span>';
+        el.querySelector('[data-sub]').textContent=`bought ${fmt(d.got,4)} ${d.ticker} for ${d.usdg} USDG`;}
+      feed(`<span class="amt">-${d.usdg} USDG</span><span class="lbl">bought ${d.ticker} · Uniswap v4</span><a href="${d.txUrl}" target="_blank">tx ↗</a>`,'buy');
+    },
+    done:(d)=>{ renderWallet(d.wallet); }
+  }, (d)=>{
+    $('#scan').disabled=false;
+    $('#status').textContent = d.event==='error' ? 'error: '+d.message : `bought: ${(d.bought||[]).join(', ')||'nothing'}`;
+  });
+};
+
+loadState().catch(e=>$('#status').textContent='load error: '+e.message);
+</script>
+</body>
+</html>

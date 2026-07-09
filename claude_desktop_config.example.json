@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "after-hours-dip-agent": {
+      "command": "node",
+      "args": ["/Users/georgelabunsky/Projects/after-hours-dip-agent/mcp/server.js"]
+    }
+  }
+}
