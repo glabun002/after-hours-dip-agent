@@ -99,6 +99,7 @@
 
   <p class="section-label">Live board · on-chain price vs last NYSE close (free preview, ~30s cache)</p>
   <div id="cards" class="cards"></div>
+  <p id="legend" style="display:none;color:var(--mute2);font-size:12px;margin:10px 2px 0"><span class="tag" style="margin-left:0">signal-only</span> = has a liquid price pool to quote, but no on-chain route to buy the stock itself. The signal is sellable; the stock is not (yet).</p>
 
   <p class="section-label">Paid endpoints</p>
   <div class="endpoints" id="endpoints"></div>
@@ -156,7 +157,7 @@ async function load(){
   $('#s-price').textContent='$'+fmt(b.pricePerQuoteUsdg);
 
   $('#cards').innerHTML = b.prices.map(p=>{
-    const tag = p.tradable===false ? '<span class="tag">signal-only</span>' : '';
+    const tag = p.tradable===false ? '<span class="tag" title="Has a liquid price pool to quote, but no on-chain route to buy the stock itself.">signal-only</span>' : '';
     if(p.error) return '<div class="card"><div><div class="tkr">'+p.ticker+tag+'</div><div class="name">'+p.name+'</div></div><div></div><div class="disc above">no data</div></div>';
     const below=p.discount>=0;
     return '<div class="card'+(p.discount>=1?' dip':'')+'">'+
@@ -166,6 +167,7 @@ async function load(){
   }).join('');
 
   $('#endpoints').innerHTML = b.prices.map(p=>'<span class="ep">GET /price/'+p.ticker+' <span class="price">· $'+fmt(b.pricePerQuoteUsdg)+'</span></span>').join('');
+  $('#legend').style.display = b.prices.some(p=>p.tradable===false) ? 'block' : 'none';
 }
 
 // swap HOST placeholders for the real host once loaded
