@@ -1,0 +1,106 @@
+// Production server: the After-Hours Oracle as a public, hosted product.
+//
+// One process, one public port:
+//   GET  /                    public landing page (live board + docs)
+//   GET  /api/board           free read-only snapshot (cached, rate-friendly)
+//   GET  /price/<TICKER>      the paid API: x402-gated, $0.05 USDG per quote
+//   GET  /health              liveness
+//
+// The x402 facilitator runs inside the same process on a loopback port; it is
+// never exposed publicly. It needs FACILITATOR_PRIVATE_KEY (a fresh, prod-only
+// key funded with a little ETH for settlement gas) and TREASURY_ADDRESS (an
+// address you control; receives the USDG). No other keys belong on the server.
+import express from 'express';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { privateKeyToAccount } from 'viem/accounts';
+import { formatUnits } from 'viem';
+import {
+  NETWORK, ORACLE_PRICE_ATOMIC, TREASURY_ADDRESS, FACILITATOR_PRIVATE_KEY,
+  USDG, USDG_DECIMALS, WATCHLIST, pricePath, EXPLORER,
+} from '../config.js';
+import { publicClient, erc20Abi } from '../lib/chain.js';
+import { buildFacilitatorApp } from '../lib/facilitator-app.js';
+import { attachOracle } from '../lib/oracle-app.js';
+import { getOnchainPrice } from '../lib/uniswap.js';
+import { getLastClose, isNyseOpenNow } from '../lib/closes.js';
+
+const PORT = Number(process.env.PORT || 8080);
+const INTERNAL_FACILITATOR_PORT = Number(process.env.INTERNAL_FACILITATOR_PORT || 4021);
+const INTERNAL_FACILITATOR_URL = `http://127.0.0.1:${INTERNAL_FACILITATOR_PORT}`;
+
+if (!FACILITATOR_PRIVATE_KEY || !TREASURY_ADDRESS) {
+  console.error('FACILITATOR_PRIVATE_KEY and TREASURY_ADDRESS are required (set them as environment variables).');
+  process.exit(1);
+}
+
+const facilitatorAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
+
+// ---- free board snapshot, cached so page traffic stays cheap on RPC/Yahoo ----
+const BOARD_CACHE_MS = 30_000;
+let boardCache = { at: 0, data: null };
+
+async function boardSnapshot() {
+  if (boardCache.data && Date.now() - boardCache.at < BOARD_CACHE_MS) return boardCache.data;
+  const prices = [];
+  for (const s of WATCHLIST) {
+    try {
+      const [onchain, official] = await Promise.all([getOnchainPrice(s), getLastClose(s.ticker)]);
+      const discount = ((official.close - onchain.price) / official.close) * 100;
+      prices.push({
+        ticker: s.ticker, name: s.name,
+        onchain: Number(onchain.price.toFixed(2)), close: official.close,
+        closeDate: official.closeDate, discount: Number(discount.toFixed(2)),
+      });
+    } catch (e) {
+      prices.push({ ticker: s.ticker, name: s.name, error: e.message });
+    }
+  }
+  // Treasury only ever receives oracle fees, so quotes sold = balance / price.
+  let stats = null;
+  try {
+    const bal = await publicClient.readContract({
+      address: USDG, abi: erc20Abi, functionName: 'balanceOf', args: [TREASURY_ADDRESS],
+    });
+    const earned = Number(formatUnits(bal, USDG_DECIMALS));
+    stats = { usdgEarned: earned, quotesSold: Math.round(earned / (Number(ORACLE_PRICE_ATOMIC) / 1e6)) };
+  } catch { /* stats are decorative; keep the board alive without them */ }
+
+  const data = {
+    network: NETWORK,
+    nyseOpenNow: isNyseOpenNow(),
+    pricePerQuoteUsdg: Number(ORACLE_PRICE_ATOMIC) / 1e6,
+    treasury: TREASURY_ADDRESS,
+    explorer: EXPLORER,
+    prices, stats,
+    asOf: new Date().toISOString(),
+  };
+  boardCache = { at: Date.now(), data };
+  return data;
+}
+
+// ---- boot: facilitator first (loopback), then the public app ----
+const facilitatorApp = buildFacilitatorApp(facilitatorAccount);
+facilitatorApp.listen(INTERNAL_FACILITATOR_PORT, '127.0.0.1', () => {
+  console.log(`internal x402 facilitator on 127.0.0.1:${INTERNAL_FACILITATOR_PORT} (settlement wallet ${facilitatorAccount.address})`);
+
+  const app = express();
+  const here = dirname(fileURLToPath(import.meta.url));
+
+  app.get('/health', (_req, res) => res.json({ ok: true, service: 'after-hours-oracle', watchlist: WATCHLIST.map((s) => s.ticker) }));
+
+  app.get('/api/board', async (_req, res) => {
+    try { res.json(await boardSnapshot()); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // paid routes (x402 middleware syncs with the loopback facilitator on start)
+  attachOracle(app, { facilitatorUrl: INTERNAL_FACILITATOR_URL });
+
+  app.get('/', (_req, res) => res.sendFile(join(here, 'public', 'index.html')));
+
+  app.listen(PORT, () => {
+    console.log(`After-Hours Oracle (public) on :${PORT}`);
+    console.log(`paid routes: ${WATCHLIST.map((s) => pricePath(s.ticker)).join(', ')} @ ${Number(ORACLE_PRICE_ATOMIC) / 1e6} USDG -> ${TREASURY_ADDRESS}`);
+  });
+});

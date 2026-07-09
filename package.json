@@ -5,13 +5,18 @@
   "type": "module",
   "description": "An AI agent that pays another machine (via x402) for after-hours equity prices on Robinhood Chain, then buys the dips across a watchlist of tokenized stocks on Uniswap v4.",
   "scripts": {
+    "start": "node server/index.js",
     "gen-wallets": "node scripts/gen-wallets.js",
+    "gen-prod-facilitator": "node scripts/gen-prod-facilitator.js",
     "status": "node scripts/status.js",
     "facilitator": "node facilitator/index.js",
     "oracle": "node oracle/index.js",
     "agent": "node agent/index.js",
     "mcp": "node mcp/server.js",
     "dashboard": "node dashboard/server.js"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

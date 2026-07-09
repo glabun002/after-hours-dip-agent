@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>After-Hours Oracle</title>
+<meta name="description" content="A paid market-signal API for AI agents. Live tokenized-stock prices vs NYSE close on Robinhood Chain, five cents per quote over x402." />
+<style>
+  :root{
+    --bg:#0a0e17; --panel:#121a28; --panel2:#0e1521; --line:#1e293b;
+    --ink:#e6edf7; --muted:#7d8aa0; --mute2:#516074;
+    --green:#00d68f; --amber:#ffb020; --blue:#4d9fff; --violet:#a78bfa;
+    --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#12203a 0%,var(--bg) 55%);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:980px;margin:0 auto;padding:34px 24px 70px}
+  a{color:var(--blue)}
+
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+  .brand h1{font-size:26px;margin:0;letter-spacing:.3px}
+  .brand p{margin:8px 0 0;color:var(--muted);font-size:14.5px;max-width:560px;line-height:1.5}
+  .pills{display:flex;gap:8px;align-items:center;flex-shrink:0}
+  .pill{font-family:var(--mono);font-size:11.5px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);white-space:nowrap}
+  .pill.market{font-weight:600}
+  .pill.closed{background:rgba(255,77,94,.13);color:#ff8792;border-color:rgba(255,77,94,.35)}
+  .pill.open{background:rgba(0,214,143,.13);color:#4fe3b3;border-color:rgba(0,214,143,.3)}
+  .pill .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .closed .dot{background:#ff4d5e;box-shadow:0 0 10px #ff4d5e}
+  .open .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 8px}
+  @media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat .k{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mute2);font-weight:600}
+  .stat .v{font-family:var(--mono);font-size:20px;margin-top:6px}
+  .stat .v.earn{color:var(--green)}
+
+  .section-label{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mute2);margin:30px 0 12px;font-weight:600}
+  .cards{display:flex;flex-direction:column;gap:10px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:13px;padding:14px 18px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px}
+  .card .tkr{font-family:var(--mono);font-size:18px;font-weight:600;min-width:88px}
+  .card .name{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .card .px{text-align:right}
+  .card .px .now{font-family:var(--mono);font-size:17px}
+  .card .px .cl{color:var(--muted);font-size:11px;font-family:var(--mono)}
+  .card .disc{text-align:right;min-width:118px;font-family:var(--mono);font-size:14px;font-weight:600}
+  .below{color:var(--amber)} .above{color:var(--muted)}
+  .card.dip{border-color:rgba(255,176,32,.4)}
+
+  .how{margin-top:8px}
+  .how p{color:var(--muted);font-size:14px;line-height:1.65;max-width:720px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:15px 17px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.65;color:var(--ink)}
+  pre .c{color:var(--mute2)} pre .g{color:var(--green)} pre .b{color:var(--blue)} pre .v{color:var(--violet)}
+  .endpoints{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+  .ep{font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink)}
+  .ep .price{color:var(--violet)}
+
+  footer{margin-top:44px;border-top:1px solid var(--line);padding-top:18px;color:var(--mute2);font-size:12.5px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>After-Hours Oracle</h1>
+      <p>A paid market-signal API for AI agents. Robinhood Chain's tokenized stocks keep trading after the NYSE closes; this API sells the live on-chain price vs the last official close. Five cents a quote, paid over x402. No API keys, no accounts.</p>
+    </div>
+    <div class="pills">
+      <span id="market" class="pill market">· · ·</span>
+      <span class="pill">Robinhood Chain · 4663</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Quotes sold</div><div class="v" id="s-quotes">—</div></div>
+    <div class="stat"><div class="k">USDG earned</div><div class="v earn" id="s-earned">—</div></div>
+    <div class="stat"><div class="k">Price per quote</div><div class="v" id="s-price">—</div></div>
+    <div class="stat"><div class="k">Settlement</div><div class="v" style="font-size:14px;padding-top:4px">on-chain, USDG</div></div>
+  </div>
+
+  <p class="section-label">Live board · on-chain price vs last NYSE close (free preview, ~30s cache)</p>
+  <div id="cards" class="cards"></div>
+
+  <p class="section-label">Paid endpoints</p>
+  <div class="endpoints" id="endpoints"></div>
+
+  <div class="how">
+    <p class="section-label">How agents pay</p>
+    <p>Hit any endpoint without payment and you get an <b>HTTP 402</b> with a machine-readable payment challenge. Sign it with a wallet holding USDG on Robinhood Chain and retry; the payment settles on-chain and the data comes back. The x402 client libraries do the whole dance in one wrapper:</p>
+
+<pre id="snippet-js"><span class="c">// npm i @x402/fetch @x402/evm viem</span>
+<span class="b">import</span> { wrapFetchWithPayment, x402Client } <span class="b">from</span> <span class="g">'@x402/fetch'</span>;
+<span class="b">import</span> { ExactEvmScheme } <span class="b">from</span> <span class="g">'@x402/evm/exact/client'</span>;
+<span class="b">import</span> { privateKeyToAccount } <span class="b">from</span> <span class="g">'viem/accounts'</span>;
+
+<span class="b">const</span> account = privateKeyToAccount(process.env.PK); <span class="c">// holds USDG on chain 4663</span>
+<span class="b">const</span> client = <span class="b">new</span> x402Client().register(<span class="g">'eip155:4663'</span>, <span class="b">new</span> ExactEvmScheme(account));
+<span class="b">const</span> payFetch = wrapFetchWithPayment(fetch, client);
+
+<span class="b">const</span> res = <span class="b">await</span> payFetch(<span class="g" data-host>'https://HOST/price/NVDA'</span>); <span class="c">// pays $0.05, settles on-chain</span>
+console.log(<span class="b">await</span> res.json());</pre>
+
+<pre><span class="c"># or see the challenge yourself:</span>
+$ curl -i <span data-host>https://HOST/price/NVDA</span>
+<span class="v">HTTP/1.1 402 Payment Required</span>
+<span class="c">payment-required: eyJ4NDAyVmVyc2lvbiI6Mi4uLi  (base64 payment requirements)</span></pre>
+
+    <p>The buyer needs no ETH; settlement gas is sponsored by this service's self-hosted x402 facilitator for <span style="font-family:var(--mono)">eip155:4663</span>. Response shape: ticker, live on-chain price, last NYSE close, discount percent, and whether the NYSE is open right now.</p>
+  </div>
+
+  <footer>
+    Built on Robinhood Chain, <a href="https://x402.org" rel="noopener">x402</a>, Uniswap v4, and USDG.
+    Code: <a href="https://github.com/glabun002/after-hours-dip-agent" rel="noopener">github.com/glabun002/after-hours-dip-agent</a><br/>
+    Data is derived from on-chain pools and public market data; provided as-is, for agents and the curious. Not investment advice.
+  </footer>
+</div>
+
+<script>
+const $=(s)=>document.querySelector(s);
+function fmt(n,d=2){return Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+
+async function load(){
+  const b = await (await fetch('/api/board')).json();
+
+  const m=$('#market'); m.className='pill market '+(b.nyseOpenNow?'open':'closed');
+  m.innerHTML='<span class="dot"></span>'+(b.nyseOpenNow?'MARKET OPEN':'MARKET CLOSED');
+
+  if(b.stats){ $('#s-quotes').textContent=b.stats.quotesSold.toLocaleString(); $('#s-earned').textContent=fmt(b.stats.usdgEarned); }
+  $('#s-price').textContent='$'+fmt(b.pricePerQuoteUsdg);
+
+  $('#cards').innerHTML = b.prices.map(p=>{
+    if(p.error) return '<div class="card"><div><div class="tkr">'+p.ticker+'</div><div class="name">'+p.name+'</div></div><div></div><div class="disc above">no data</div></div>';
+    const below=p.discount>=0;
+    return '<div class="card'+(p.discount>=1?' dip':'')+'">'+
+      '<div><div class="tkr">'+p.ticker+'</div><div class="name">'+p.name+'</div></div>'+
+      '<div class="px"><div class="now">$'+fmt(p.onchain)+'</div><div class="cl">close $'+fmt(p.close)+'</div></div>'+
+      '<div class="disc '+(below?'below':'above')+'">'+Math.abs(p.discount).toFixed(2)+'% '+(below?'below':'above')+'</div></div>';
+  }).join('');
+
+  $('#endpoints').innerHTML = b.prices.map(p=>'<span class="ep">GET /price/'+p.ticker+' <span class="price">· $'+fmt(b.pricePerQuoteUsdg)+'</span></span>').join('');
+}
+
+// swap HOST placeholders for the real host once loaded
+for (const el of document.querySelectorAll('[data-host]')) {
+  el.textContent = el.textContent.replace('HOST', location.host || 'localhost:8080');
+}
+load().catch(()=>{});
+setInterval(()=>load().catch(()=>{}), 60_000);
+</script>
+</body>
+</html>

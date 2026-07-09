@@ -40,6 +40,24 @@ npm run agent           # scan the watchlist, buy the dips
 
 Tune `THRESHOLD_DISCOUNT_PCT`, `BUY_USDG`, `SLIPPAGE_PCT` in `.env`. `WATCH_MINUTES=30 npm run agent` runs it as a standing after-hours watcher.
 
+## Hosting the oracle as a public product
+
+`server/` is a single deployable service: a public landing page with the live board, the x402-gated `/price/<TICKER>` API, a free cached `/api/board`, and the facilitator running in-process on a loopback port (never exposed). Any agent with USDG on Robinhood Chain can pay it, no account needed.
+
+```bash
+npm run gen-prod-facilitator   # prints a FRESH key + address; nothing written to disk
+```
+
+Deploy anywhere that runs Node or Docker (Railway, Render, Fly). Entry point is `npm start` (or the included `Dockerfile`), listening on `$PORT`. Set three environment variables on the platform:
+
+| Var | What |
+|---|---|
+| `FACILITATOR_PRIVATE_KEY` | The fresh prod key from the script. Fund its address with ~0.002 ETH on Robinhood Chain (settlement gas). |
+| `TREASURY_ADDRESS` | Where the USDG lands. Its private key never goes on the server. |
+| `RPC_URL` | An Alchemy endpoint for chain 4663 (the public RPC is rate-limited). |
+
+Operational notes: the facilitator wallet is a hot wallet, so keep only gas-money in it. The buyer needs no ETH; your facilitator sponsors settlement gas (fractions of a cent per quote on this chain).
+
 ## MCP tools
 
 Copy `claude_desktop_config.example.json` into your Claude Desktop config (fix the absolute path), restart Claude, and keep the facilitator + oracle running (the tools pay them).
