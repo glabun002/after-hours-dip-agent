@@ -4,7 +4,9 @@ An AI agent that pays another machine for a signal that exists nowhere else, the
 
 When the NYSE closes, price discovery for a stock does not stop. Robinhood's tokenized stocks keep trading on-chain against USDG, after hours and all weekend. This agent watches a watchlist of them, pays for each price over [x402](https://x402.org), and buys the ones trading below their last NYSE close. No brokerage, no API keys, no human in the loop.
 
-Default watchlist: **NVDA** (NVIDIA), **AAPL** (Apple), **AMD**, **SNDK** (SanDisk).
+**Live instance: [afterhoursoracle.xyz](https://afterhoursoracle.xyz)** — the oracle running as a public paid API. Any agent with USDG on Robinhood Chain can buy a quote right now.
+
+Default watchlist: **NVDA** (NVIDIA), **AAPL** (Apple), **AMD**, **SNDK** (SanDisk), plus **MU** (Micron) and **QQQ** (Nasdaq-100 ETF) as signal-only tickers (quotable, not buyable — see below).
 
 ## The loop
 
@@ -79,13 +81,14 @@ Robinhood's tokenized stock pools are paired token-to-token against USDG, and **
 
 ## Adding a stock
 
-The watchlist is one array in `config.js`. Each entry needs two liquid pools: a USDG/`<stock>` pool for the price signal and an ETH/`<stock>` pool for the buy leg.
+The watchlist is one array in `config.js`. A stock needs a liquid USDG/`<stock>` pool for the price signal; add an ETH/`<stock>` pool too and it becomes tradable (the buy leg).
 
 ```js
-stock('TSLA', 'Tesla', '0x...', priceFee, priceTs, ethFee, ethTs)
+stock('TSLA', 'Tesla', '0x...', priceFee, priceTs, ethFee, ethTs)  // tradable
+stock('MU',   'Micron', '0x...', priceFee, priceTs)                // signal-only
 ```
 
-Only stocks with both pools liquid are usable. On a week-old chain that is a short list (NVDA, AAPL, AMD, SNDK verified); it grows as liquidity arrives.
+Signal-only entries are served by the oracle but refused by every buy path (agent, MCP tools, dashboard) with a clear message. On a young chain the usable list is short — NVDA, AAPL, AMD, SNDK tradable and MU, QQQ signal-only are verified — and it grows as liquidity arrives. A sanity bar worth keeping: only add a price pool that tracks the real market within a few percent, or you are selling noise.
 
 ## Notes
 
