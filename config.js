@@ -81,7 +81,17 @@ export const BUY_USDG = Number(process.env.BUY_USDG || 15);
 // Slippage tolerance on the swap, in percent.
 export const SLIPPAGE_PCT = Number(process.env.SLIPPAGE_PCT || 1.0);
 
-// ---- Keys / addresses (set by scripts/gen-wallets.js) ----
-export const AGENT_PRIVATE_KEY = process.env.AGENT_PRIVATE_KEY;
-export const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY;
-export const TREASURY_ADDRESS = process.env.TREASURY_ADDRESS;
+// ---- Keys / addresses (set by scripts/gen-wallets.js or platform env vars) ----
+// These often arrive via copy-paste into hosting dashboards, so forgive the
+// common accidents: stray quotes, whitespace, a "NAME=" prefix, or trailing
+// annotation text after an address. Format validation stays with consumers.
+const cleanKey = (v) => (v ? v.trim().replace(/^["']|["']$/g, '').replace(/^[A-Z_]+=/, '') : v);
+const cleanAddress = (v) => {
+  if (!v) return v;
+  const m = v.match(/0x[0-9a-fA-F]{40}/);
+  return m ? m[0] : v.trim();
+};
+
+export const AGENT_PRIVATE_KEY = cleanKey(process.env.AGENT_PRIVATE_KEY);
+export const FACILITATOR_PRIVATE_KEY = cleanKey(process.env.FACILITATOR_PRIVATE_KEY);
+export const TREASURY_ADDRESS = cleanAddress(process.env.TREASURY_ADDRESS);
