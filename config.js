@@ -24,6 +24,23 @@ export const USDG_DECIMALS = 6;
 // EIP-712 domain of USDG, brute-force matched against on-chain DOMAIN_SEPARATOR
 export const USDG_EIP712 = { name: 'Global Dollar', version: '1' };
 
+// ---- Base as a payment network (the DATA stays on Robinhood Chain) ----
+// Buyers can pay in USDC on Base or USDG on Robinhood Chain; the same
+// self-hosted facilitator settles both (its wallet needs gas on each chain).
+export const BASE_CHAIN_ID = 8453;
+export const BASE_NETWORK = `eip155:${BASE_CHAIN_ID}`;
+export const BASE_RPC_URL = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
+export const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // native USDC, 6 decimals
+export const BASE_USDC_EIP712 = { name: 'USD Coin', version: '2' };
+export const ACCEPT_BASE = process.env.ACCEPT_BASE !== 'false';
+
+// Every way a buyer can pay for a quote. USDG and USDC are both 6 decimals,
+// so one atomic amount covers both.
+export const paymentOptionsFor = (amountAtomic, payTo) => [
+  { scheme: 'exact', network: NETWORK, payTo, maxTimeoutSeconds: 120, price: { asset: USDG, amount: amountAtomic, extra: { ...USDG_EIP712 } }, extra: { ...USDG_EIP712 } },
+  ...(ACCEPT_BASE ? [{ scheme: 'exact', network: BASE_NETWORK, payTo, maxTimeoutSeconds: 120, price: { asset: BASE_USDC, amount: amountAtomic, extra: { ...BASE_USDC_EIP712 } }, extra: { ...BASE_USDC_EIP712 } }] : []),
+];
+
 // Uniswap v4 (developers.uniswap.org/contracts/v4/deployments, chain 4663)
 export const POOL_MANAGER = '0x8366a39cc670b4001a1121b8f6a443a643e40951';
 export const UNIVERSAL_ROUTER = '0x8876789976decbfcbbbe364623c63652db8c0904';

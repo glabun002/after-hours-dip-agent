@@ -14,10 +14,12 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { privateKeyToAccount } from 'viem/accounts';
-import { formatUnits } from 'viem';
+import { formatUnits, createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
 import {
   NETWORK, ORACLE_PRICE_ATOMIC, TREASURY_ADDRESS, FACILITATOR_PRIVATE_KEY,
   USDG, USDG_DECIMALS, WATCHLIST, pricePath, EXPLORER,
+  ACCEPT_BASE, BASE_NETWORK, BASE_RPC_URL, BASE_USDC,
 } from '../config.js';
 import { publicClient, erc20Abi } from '../lib/chain.js';
 import { buildFacilitatorApp } from '../lib/facilitator-app.js';
@@ -52,6 +54,8 @@ if (!/^0x[0-9a-fA-F]{40}$/.test(TREASURY_ADDRESS)) {
 
 const facilitatorAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
 
+const basePublicClient = createPublicClient({ chain: base, transport: http(BASE_RPC_URL) });
+
 // ---- free board snapshot, cached so page traffic stays cheap on RPC/Yahoo ----
 const BOARD_CACHE_MS = 30_000;
 let boardCache = { at: 0, data: null };
@@ -72,18 +76,36 @@ async function boardSnapshot() {
       prices.push({ ticker: s.ticker, name: s.name, tradable: s.tradable, error: e.message });
     }
   }
-  // Treasury only ever receives oracle fees, so quotes sold = balance / price.
+  // Treasury only ever receives oracle fees, so quotes sold = earnings / price.
+  // Earnings arrive as USDG on Robinhood Chain and USDC on Base.
   let stats = null;
   try {
-    const bal = await publicClient.readContract({
+    const usdgBal = await publicClient.readContract({
       address: USDG, abi: erc20Abi, functionName: 'balanceOf', args: [TREASURY_ADDRESS],
     });
-    const earned = Number(formatUnits(bal, USDG_DECIMALS));
-    stats = { usdgEarned: earned, quotesSold: Math.round(earned / (Number(ORACLE_PRICE_ATOMIC) / 1e6)) };
+    let usdcBal = 0n;
+    if (ACCEPT_BASE) {
+      try {
+        usdcBal = await basePublicClient.readContract({
+          address: BASE_USDC, abi: erc20Abi, functionName: 'balanceOf', args: [TREASURY_ADDRESS],
+        });
+      } catch { /* Base RPC hiccup: show Robinhood-side stats rather than none */ }
+    }
+    const usdgEarned = Number(formatUnits(usdgBal, USDG_DECIMALS));
+    const usdcEarned = Number(formatUnits(usdcBal, 6));
+    stats = {
+      usdgEarned, usdcEarned,
+      totalEarned: Number((usdgEarned + usdcEarned).toFixed(2)),
+      quotesSold: Math.round((usdgEarned + usdcEarned) / (Number(ORACLE_PRICE_ATOMIC) / 1e6)),
+    };
   } catch { /* stats are decorative; keep the board alive without them */ }
 
   const data = {
     network: NETWORK,
+    payWith: [
+      { network: NETWORK, asset: 'USDG', label: 'USDG on Robinhood Chain' },
+      ...(ACCEPT_BASE ? [{ network: BASE_NETWORK, asset: 'USDC', label: 'USDC on Base' }] : []),
+    ],
     nyseOpenNow: isNyseOpenNow(),
     pricePerQuoteUsdg: Number(ORACLE_PRICE_ATOMIC) / 1e6,
     treasury: TREASURY_ADDRESS,
@@ -99,6 +121,7 @@ async function boardSnapshot() {
 const facilitatorApp = buildFacilitatorApp(facilitatorAccount);
 facilitatorApp.listen(INTERNAL_FACILITATOR_PORT, '127.0.0.1', () => {
   console.log(`internal x402 facilitator on 127.0.0.1:${INTERNAL_FACILITATOR_PORT} (settlement wallet ${facilitatorAccount.address})`);
+  console.log(`settles: ${NETWORK}${ACCEPT_BASE ? ` + ${BASE_NETWORK} (wallet needs gas on BOTH chains)` : ''}`);
 
   const app = express();
   const here = dirname(fileURLToPath(import.meta.url));

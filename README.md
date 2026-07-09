@@ -10,7 +10,7 @@ Default watchlist: **NVDA** (NVIDIA), **AAPL** (Apple), **AMD**, **SNDK** (SanDi
 
 ## The loop
 
-1. **After-Hours Oracle** (`oracle/`): a paid API with one route per stock. Each query reads the live on-chain price from a Uniswap v4 pool, compares it to the last official NYSE close, and returns the discount. Each call costs $0.05 in USDG, paid over x402 (the HTTP "402 Payment Required" protocol).
+1. **After-Hours Oracle** (`oracle/`): a paid API with one route per stock. Each query reads the live on-chain price from a Uniswap v4 pool, compares it to the last official NYSE close, and returns the discount. Each call costs $0.05, paid over x402 (the HTTP "402 Payment Required" protocol) in **USDC on Base or USDG on Robinhood Chain** — the 402 challenge offers both and the buyer picks. The same self-hosted facilitator settles both chains (fund its wallet with a little ETH on each).
 2. **Facilitator** (`facilitator/`): a self-hosted x402 facilitator for `eip155:4663`. No hosted facilitator supports Robinhood Chain, so you run your own. It verifies the agent's signed EIP-3009 USDG authorization and settles it on-chain.
 3. **Agent** (`agent/`): scans the watchlist (paying for each quote), holds the stocks tracking their close, and buys the ones trading at least `THRESHOLD_DISCOUNT_PCT` below it, biggest dip first. Buys route USDG → ETH → stock on Uniswap v4.
 

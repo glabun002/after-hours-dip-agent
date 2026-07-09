@@ -82,7 +82,7 @@
   <header>
     <div class="brand">
       <h1>After-Hours Oracle</h1>
-      <p>A paid market-signal API for AI agents. Robinhood Chain's tokenized stocks keep trading after the NYSE closes; this API sells the live on-chain price vs the last official close. Five cents a quote, paid over x402. No API keys, no accounts.</p>
+      <p>A paid market-signal API for AI agents. Robinhood Chain's tokenized stocks keep trading after the NYSE closes; this API sells the live on-chain price vs the last official close. Five cents a quote over x402, payable in USDC on Base or USDG on Robinhood Chain. No API keys, no accounts.</p>
     </div>
     <div class="pills">
       <span id="market" class="pill market">· · ·</span>
@@ -92,9 +92,9 @@
 
   <div class="stats">
     <div class="stat"><div class="k">Quotes sold</div><div class="v" id="s-quotes">—</div></div>
-    <div class="stat"><div class="k">USDG earned</div><div class="v earn" id="s-earned">—</div></div>
+    <div class="stat"><div class="k">Earned (USDG + USDC)</div><div class="v earn" id="s-earned">—</div></div>
     <div class="stat"><div class="k">Price per quote</div><div class="v" id="s-price">—</div></div>
-    <div class="stat"><div class="k">Settlement</div><div class="v" style="font-size:14px;padding-top:4px">on-chain, USDG</div></div>
+    <div class="stat"><div class="k">Pay from</div><div class="v" style="font-size:13.5px;padding-top:4px" id="s-paywith">Base · Robinhood Chain</div></div>
   </div>
 
   <p class="section-label">Live board · on-chain price vs last NYSE close (free preview, ~30s cache)</p>
@@ -106,15 +106,17 @@
 
   <div class="how">
     <p class="section-label">How agents pay</p>
-    <p>Hit any endpoint without payment and you get an <b>HTTP 402</b> with a machine-readable payment challenge. Sign it with a wallet holding USDG on Robinhood Chain and retry; the payment settles on-chain and the data comes back. The x402 client libraries do the whole dance in one wrapper:</p>
+    <p>Hit any endpoint without payment and you get an <b>HTTP 402</b> whose challenge offers two ways to pay: <b>USDC on Base</b> (easiest — where most x402 agents already hold funds) or <b>USDG on Robinhood Chain</b>. Sign either with your wallet and retry; the payment settles on-chain and the data comes back. The x402 client libraries do the whole dance in one wrapper:</p>
 
 <pre id="snippet-js"><span class="c">// npm i @x402/fetch @x402/evm viem</span>
 <span class="b">import</span> { wrapFetchWithPayment, x402Client } <span class="b">from</span> <span class="g">'@x402/fetch'</span>;
 <span class="b">import</span> { ExactEvmScheme } <span class="b">from</span> <span class="g">'@x402/evm/exact/client'</span>;
 <span class="b">import</span> { privateKeyToAccount } <span class="b">from</span> <span class="g">'viem/accounts'</span>;
 
-<span class="b">const</span> account = privateKeyToAccount(process.env.PK); <span class="c">// holds USDG on chain 4663</span>
-<span class="b">const</span> client = <span class="b">new</span> x402Client().register(<span class="g">'eip155:4663'</span>, <span class="b">new</span> ExactEvmScheme(account));
+<span class="b">const</span> account = privateKeyToAccount(process.env.PK); <span class="c">// USDC on Base is enough</span>
+<span class="b">const</span> client = <span class="b">new</span> x402Client()
+  .register(<span class="g">'eip155:8453'</span>, <span class="b">new</span> ExactEvmScheme(account))  <span class="c">// pay in USDC on Base</span>
+  .register(<span class="g">'eip155:4663'</span>, <span class="b">new</span> ExactEvmScheme(account)); <span class="c">// or USDG on Robinhood Chain</span>
 <span class="b">const</span> payFetch = wrapFetchWithPayment(fetch, client);
 
 <span class="b">const</span> res = <span class="b">await</span> payFetch(<span class="g" data-host>'https://HOST/price/NVDA'</span>); <span class="c">// pays $0.05, settles on-chain</span>
@@ -125,7 +127,7 @@ $ curl -i <span data-host>https://HOST/price/NVDA</span>
 <span class="v">HTTP/1.1 402 Payment Required</span>
 <span class="c">payment-required: eyJ4NDAyVmVyc2lvbiI6Mi4uLi  (base64 payment requirements)</span></pre>
 
-    <p>The buyer needs no ETH; settlement gas is sponsored by this service's self-hosted x402 facilitator for <span style="font-family:var(--mono)">eip155:4663</span>. Response shape: ticker, live on-chain price, last NYSE close, discount percent, and whether the NYSE is open right now.</p>
+    <p>The buyer needs no ETH on either chain; settlement gas is sponsored by this service's self-hosted x402 facilitator, which settles both <span style="font-family:var(--mono)">eip155:8453</span> (Base) and <span style="font-family:var(--mono)">eip155:4663</span> (Robinhood Chain). Response shape: ticker, live on-chain price, last NYSE close, discount percent, and whether the NYSE is open right now.</p>
 
     <p class="section-label">Read this before trading on it</p>
     <ul class="caveats">
@@ -153,8 +155,9 @@ async function load(){
   const m=$('#market'); m.className='pill market '+(b.nyseOpenNow?'open':'closed');
   m.innerHTML='<span class="dot"></span>'+(b.nyseOpenNow?'MARKET OPEN':'MARKET CLOSED');
 
-  if(b.stats){ $('#s-quotes').textContent=b.stats.quotesSold.toLocaleString(); $('#s-earned').textContent=fmt(b.stats.usdgEarned); }
+  if(b.stats){ $('#s-quotes').textContent=b.stats.quotesSold.toLocaleString(); $('#s-earned').textContent=fmt(b.stats.totalEarned ?? b.stats.usdgEarned); }
   $('#s-price').textContent='$'+fmt(b.pricePerQuoteUsdg);
+  if(b.payWith){ $('#s-paywith').textContent = b.payWith.map(w=>w.asset+' · '+w.label.split(' on ')[1]).join('  |  '); }
 
   $('#cards').innerHTML = b.prices.map(p=>{
     const tag = p.tradable===false ? '<span class="tag" title="Has a liquid price pool to quote, but no on-chain route to buy the stock itself.">signal-only</span>' : '';
