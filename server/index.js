@@ -19,11 +19,12 @@ import { base } from 'viem/chains';
 import {
   NETWORK, ORACLE_PRICE_ATOMIC, TREASURY_ADDRESS, FACILITATOR_PRIVATE_KEY,
   USDG, USDG_DECIMALS, WATCHLIST, pricePath, EXPLORER,
-  ACCEPT_BASE, BASE_NETWORK, BASE_RPC_URL, BASE_USDC,
+  ACCEPT_BASE, BASE_NETWORK, BASE_RPC_URL, BASE_USDC, ACCEPT_MPP, MPP_TESTNET,
 } from '../config.js';
 import { publicClient, erc20Abi } from '../lib/chain.js';
 import { buildFacilitatorApp } from '../lib/facilitator-app.js';
-import { attachOracle } from '../lib/oracle-app.js';
+import { attachOracle, priceHandlerFor } from '../lib/oracle-app.js';
+import { createMpp, attachMpp } from '../lib/mpp-app.js';
 import { getOnchainPrice } from '../lib/uniswap.js';
 import { getLastClose, isNyseOpenNow } from '../lib/closes.js';
 
@@ -106,6 +107,7 @@ async function boardSnapshot() {
       ...(ACCEPT_BASE ? [{ network: BASE_NETWORK, asset: 'USDC', label: 'USDC on Base' }] : []),
       { network: NETWORK, asset: 'USDG', label: 'USDG on Robinhood Chain' },
     ],
+    protocols: ['x402', ...(ACCEPT_MPP ? ['mpp'] : [])],
     nyseOpenNow: isNyseOpenNow(),
     pricePerQuoteUsdg: Number(ORACLE_PRICE_ATOMIC) / 1e6,
     treasury: TREASURY_ADDRESS,
@@ -132,6 +134,18 @@ facilitatorApp.listen(INTERNAL_FACILITATOR_PORT, '127.0.0.1', () => {
     try { res.json(await boardSnapshot()); }
     catch (e) { res.status(500).json({ error: e.message }); }
   });
+
+  // MPP surface first: consumes `Authorization: Payment` credentials on the
+  // price routes and grafts MPP's challenge onto unpaid 402s. Everything
+  // else falls through to the x402 stack below.
+  if (ACCEPT_MPP) {
+    try {
+      attachMpp(app, createMpp(), priceHandlerFor);
+      console.log(`MPP surface on (${MPP_TESTNET ? 'Tempo testnet/Moderato' : 'Tempo mainnet'}, settles to ${TREASURY_ADDRESS})`);
+    } catch (e) {
+      console.error('MPP surface failed to attach (continuing x402-only):', e.message);
+    }
+  }
 
   // paid routes (x402 middleware syncs with the loopback facilitator on start)
   attachOracle(app, { facilitatorUrl: INTERNAL_FACILITATOR_URL });

@@ -60,6 +60,21 @@ Deploy anywhere that runs Node or Docker (Railway, Render, Fly). Entry point is 
 
 Operational notes: the facilitator wallet is a hot wallet, so keep only gas-money in it. The buyer needs no ETH; your facilitator sponsors settlement gas (fractions of a cent per quote on this chain).
 
+### Second protocol: MPP (Stripe/Tempo)
+
+The same price routes also speak [MPP](https://mpp.dev), the Machine Payments Protocol. One 402 response carries **both** an x402 challenge (`PAYMENT-REQUIRED` header) and an MPP challenge (`WWW-Authenticate: Payment`), so an agent on either standard can pay. The two protocols use disjoint headers, so they coexist on one endpoint with no ambiguity. MPP settles in PathUSD on Tempo; the server co-signs and sponsors the buyer's gas (Tempo pull mode), so an MPP buyer needs no gas either.
+
+It is **off by default** (needs setup). To enable:
+
+```bash
+npm i          # brings in mppx (and express 5, its peer)
+# generate a challenge-binding secret and a Tempo fee-payer:
+openssl rand -base64 32        # -> MPP_SECRET_KEY
+npx mppx account create --account feepayer     # its key -> MPP_FEE_PAYER_KEY
+```
+
+Fund the fee-payer with PathUSD + gas on Tempo (`npx mppx account fund` for testnet), then set `ACCEPT_MPP=true`, `MPP_SECRET_KEY`, and `MPP_FEE_PAYER_KEY`. Verified end to end on Tempo's Moderato testnet: `npx mppx <url> --network testnet` pays and gets the data while x402 buyers keep working on the same server.
+
 ## MCP tools
 
 Copy `claude_desktop_config.example.json` into your Claude Desktop config (fix the absolute path), restart Claude, and keep the facilitator + oracle running (the tools pay them).

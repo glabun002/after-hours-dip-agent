@@ -44,6 +44,17 @@ export const paymentOptionsFor = (amountAtomic, payTo) => [
   { scheme: 'exact', network: NETWORK, payTo, maxTimeoutSeconds: 120, price: { asset: USDG, amount: amountAtomic, extra: { ...USDG_EIP712 } }, extra: { ...USDG_EIP712 } },
 ];
 
+// ---- MPP (Machine Payments Protocol) as a second protocol surface ----
+// The same price routes also sell over Stripe/Tempo's MPP: one 402 response
+// carries both the x402 challenge and MPP's WWW-Authenticate challenge.
+// Settlement lands on Tempo; the facilitator key doubles as fee co-signer.
+// Opt-in: MPP needs MPP_SECRET_KEY + a Tempo-funded fee-payer, so it stays off
+// until explicitly enabled (ACCEPT_MPP=true). x402/Base are unaffected.
+export const ACCEPT_MPP = process.env.ACCEPT_MPP === 'true';
+export const MPP_TESTNET = process.env.MPP_TESTNET === 'true'; // Moderato testnet for local testing
+// PathUSD, Tempo's canonical TIP-20 stablecoin (address from official MPP docs)
+export const MPP_CURRENCY = process.env.MPP_CURRENCY || '0x20c0000000000000000000000000000000000000';
+
 // Uniswap v4 (developers.uniswap.org/contracts/v4/deployments, chain 4663)
 export const POOL_MANAGER = '0x8366a39cc670b4001a1121b8f6a443a643e40951';
 export const UNIVERSAL_ROUTER = '0x8876789976decbfcbbbe364623c63652db8c0904';

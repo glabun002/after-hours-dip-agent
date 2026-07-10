@@ -129,6 +129,8 @@ $ curl -i <span data-host>https://HOST/price/NVDA</span>
 
     <p>The buyer needs no ETH on either chain; settlement gas is sponsored by this service's self-hosted x402 facilitator, which settles both <span style="font-family:var(--mono)">eip155:8453</span> (Base) and <span style="font-family:var(--mono)">eip155:4663</span> (Robinhood Chain). Response shape: ticker, live on-chain price, last NYSE close, discount percent, and whether the NYSE is open right now.</p>
 
+    <p id="mpp-note" style="display:none;color:var(--muted);font-size:14px;line-height:1.65">Every price route also speaks <b>MPP</b> (the Stripe/Tempo Machine Payments Protocol): the same 402 carries an MPP challenge alongside the x402 one, and an MPP client can pay in PathUSD on Tempo. One endpoint, two agent-payment standards.</p>
+
     <p class="section-label">Read this before trading on it</p>
     <ul class="caveats">
       <li><b>These pools are thin.</b> Robinhood Chain is days old and its stock-token pools hold modest liquidity. The price is the real on-chain print, but it is not the price you could execute at size, and small trades move it.</li>
@@ -158,6 +160,7 @@ async function load(){
   if(b.stats){ $('#s-quotes').textContent=b.stats.quotesSold.toLocaleString(); $('#s-earned').textContent=fmt(b.stats.totalEarned ?? b.stats.usdgEarned); }
   $('#s-price').textContent='$'+fmt(b.pricePerQuoteUsdg);
   if(b.payWith){ $('#s-paywith').textContent = b.payWith.map(w=>w.asset+' · '+w.label.split(' on ')[1]).join('  |  '); }
+  if(b.protocols && b.protocols.includes('mpp')){ $('#mpp-note').style.display='block'; }
 
   $('#cards').innerHTML = b.prices.map(p=>{
     const tag = p.tradable===false ? '<span class="tag" title="Has a liquid price pool to quote, but no on-chain route to buy the stock itself.">signal-only</span>' : '';
